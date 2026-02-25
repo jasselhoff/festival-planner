@@ -1,0 +1,45 @@
+# Dependencies
+node_modules
+*/node_modules
+
+# Build outputs (we build inside Docker)
+server/dist
+client/dist
+
+# Development files
+*.log
+.env
+.env.local
+.env.*.local
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Database files (we create fresh in container)
+*.db
+*.sqlite
+
+# Test files
+coverage
+*.test.ts
+*.spec.ts
+
+# Documentation
+README.md
+*.md
+
+# Docker files (no need to copy these into the image)
+Dockerfile
+docker-compose*.yml
+.dockerignore

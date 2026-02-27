@@ -1,11 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { spotifyService } from '../services/spotifyService';
-import type { SpotifyArtist } from '../types';
-import { Loader2, Music, Search } from 'lucide-react';
+import { artistService } from '../services/artistService';
+import type { SpotifyArtist, Artist } from '../types';
+import { Loader2, Music, Search, Database, ExternalLink } from 'lucide-react';
+
+// Combined result type for display
+interface SearchResult {
+  type: 'spotify' | 'database';
+  spotifyArtist?: SpotifyArtist;
+  dbArtist?: Artist;
+  name: string;
+  genre?: string;
+  imageUrl?: string;
+}
 
 interface ArtistSearchProps {
   value: string;
-  onChange: (value: string, artist?: SpotifyArtist) => void;
+  onChange: (value: string, spotifyArtist?: SpotifyArtist, dbArtist?: Artist) => void;
   placeholder?: string;
   required?: boolean;
   className?: string;
@@ -19,7 +30,7 @@ export function ArtistSearch({
   className = '',
 }: ArtistSearchProps) {
   const [query, setQuery] = useState(value);
-  const [results, setResults] = useState<SpotifyArtist[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,16 +59,52 @@ export function ArtistSearch({
       setError(null);
 
       try {
-        const artists = await spotifyService.searchArtists(query);
-        setResults(artists);
-        setIsOpen(artists.length > 0);
+        // Search both Spotify and local database in parallel
+        const [spotifyResults, dbResults] = await Promise.all([
+          spotifyService.searchArtists(query).catch(() => [] as SpotifyArtist[]),
+          artistService.listArtists(query).catch(() => [] as Artist[]),
+        ]);
+
+        const combinedResults: SearchResult[] = [];
+
+        // Add database results first (prioritized)
+        for (const dbArtist of dbResults) {
+          combinedResults.push({
+            type: 'database',
+            dbArtist,
+            name: dbArtist.name,
+            genre: dbArtist.genre,
+            imageUrl: dbArtist.imageUrl,
+          });
+        }
+
+        // Add Spotify results, filtering out duplicates
+        const dbSpotifyIds = new Set(dbResults.filter(a => a.spotifyArtistId).map(a => a.spotifyArtistId));
+        const dbNames = new Set(dbResults.map(a => a.name.toLowerCase()));
+
+        for (const spotifyArtist of spotifyResults) {
+          // Skip if already in DB (by Spotify ID or exact name match)
+          if (dbSpotifyIds.has(spotifyArtist.id) || dbNames.has(spotifyArtist.name.toLowerCase())) {
+            continue;
+          }
+          combinedResults.push({
+            type: 'spotify',
+            spotifyArtist,
+            name: spotifyArtist.name,
+            genre: spotifyArtist.genres[0],
+            imageUrl: spotifyArtist.imageUrl,
+          });
+        }
+
+        setResults(combinedResults);
+        setIsOpen(combinedResults.length > 0);
+
+        if (spotifyResults.length === 0 && dbResults.length === 0) {
+          setError('No artists found');
+        }
       } catch (err: any) {
         console.error('Artist search error:', err);
-        if (err.response?.status === 503) {
-          setError('Spotify search unavailable');
-        } else {
-          setError('Search failed');
-        }
+        setError('Search failed');
         setResults([]);
       } finally {
         setIsLoading(false);
@@ -89,9 +136,9 @@ export function ArtistSearch({
     onChange(newValue);
   };
 
-  const handleSelectArtist = (artist: SpotifyArtist) => {
-    setQuery(artist.name);
-    onChange(artist.name, artist);
+  const handleSelectResult = (result: SearchResult) => {
+    setQuery(result.name);
+    onChange(result.name, result.spotifyArtist, result.dbArtist);
     setIsOpen(false);
     setResults([]);
   };
@@ -123,23 +170,23 @@ export function ArtistSearch({
         </div>
       </div>
 
-      {error && (
+      {error && !results.length && (
         <p className="text-xs text-amber-600 mt-1">{error} - you can still type manually</p>
       )}
 
       {isOpen && results.length > 0 && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-          {results.map((artist) => (
+          {results.map((result, index) => (
             <button
-              key={artist.id}
+              key={`${result.type}-${result.dbArtist?.id || result.spotifyArtist?.id || index}`}
               type="button"
-              onClick={() => handleSelectArtist(artist)}
+              onClick={() => handleSelectResult(result)}
               className="w-full px-3 py-2 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
             >
-              {artist.imageUrl ? (
+              {result.imageUrl ? (
                 <img
-                  src={artist.imageUrl}
-                  alt={artist.name}
+                  src={result.imageUrl}
+                  alt={result.name}
                   className="w-10 h-10 rounded-full object-cover"
                 />
               ) : (
@@ -148,11 +195,23 @@ export function ArtistSearch({
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-gray-900 truncate">{artist.name}</div>
-                {artist.genres.length > 0 && (
-                  <div className="text-xs text-gray-500 truncate">
-                    {artist.genres.slice(0, 3).join(', ')}
-                  </div>
+                <div className="font-medium text-gray-900 truncate flex items-center gap-2">
+                  {result.name}
+                  {result.type === 'database' && (
+                    <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                      <Database className="w-3 h-3" />
+                      Saved
+                    </span>
+                  )}
+                  {result.type === 'spotify' && (
+                    <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
+                      <ExternalLink className="w-3 h-3" />
+                      Spotify
+                    </span>
+                  )}
+                </div>
+                {result.genre && (
+                  <div className="text-xs text-gray-500 truncate">{result.genre}</div>
                 )}
               </div>
             </button>

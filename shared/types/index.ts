@@ -69,6 +69,8 @@ export interface Act {
   startTime: string;
   endTime: string;
   genre?: string;
+  spotifyArtistId?: string;
+  artistId?: number;
 }
 
 export interface ActCreateInput {
@@ -79,6 +81,8 @@ export interface ActCreateInput {
   startTime: string;
   endTime: string;
   genre?: string;
+  spotifyArtistId?: string;
+  artistId?: number;
 }
 
 // Full event with nested data

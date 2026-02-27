@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { eventService } from '../services/eventService';
-import type { EventFull, SpotifyArtist } from '../types';
+import { artistService } from '../services/artistService';
+import type { EventFull, SpotifyArtist, Artist } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { ArtistSearch } from '../components/ArtistSearch';
 import { TimeInput } from '../components/TimeInput';
@@ -43,6 +44,8 @@ export function EventDetailPage() {
     startTime: '12:00',
     endTime: '13:00',
     genre: '',
+    spotifyArtistId: '',
+    artistId: 0,
   });
 
   useEffect(() => {
@@ -107,6 +110,18 @@ export function EventDetailPage() {
     if (!event) return;
 
     try {
+      let artistId = actForm.artistId;
+
+      // If no artistId but we have artist info, create the artist first
+      if (!artistId && actForm.name) {
+        const { artist } = await artistService.createArtist({
+          name: actForm.name,
+          spotifyArtistId: actForm.spotifyArtistId || undefined,
+          genre: actForm.genre || undefined,
+        });
+        artistId = artist.id;
+      }
+
       const act = await eventService.createAct(event.id, {
         name: actForm.name,
         description: actForm.description || undefined,
@@ -115,6 +130,7 @@ export function EventDetailPage() {
         startTime: actForm.startTime,
         endTime: actForm.endTime,
         genre: actForm.genre || undefined,
+        artistId: artistId || undefined,
       });
       setEvent({ ...event, acts: [...event.acts, act] });
       setActForm({
@@ -125,6 +141,8 @@ export function EventDetailPage() {
         startTime: '12:00',
         endTime: '13:00',
         genre: '',
+        spotifyArtistId: '',
+        artistId: 0,
       });
       setShowActForm(false);
       toast.success('Act added');
@@ -323,12 +341,33 @@ export function EventDetailPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <ArtistSearch
                 value={actForm.name}
-                onChange={(name: string, artist?: SpotifyArtist) => {
-                  setActForm({
-                    ...actForm,
-                    name,
-                    genre: artist?.genres?.[0] || actForm.genre,
-                  });
+                onChange={(name: string, spotifyArtist?: SpotifyArtist, dbArtist?: Artist) => {
+                  if (dbArtist) {
+                    // Use existing artist from database
+                    setActForm({
+                      ...actForm,
+                      name: dbArtist.name,
+                      genre: dbArtist.genre || actForm.genre,
+                      spotifyArtistId: dbArtist.spotifyArtistId || '',
+                      artistId: dbArtist.id,
+                    });
+                  } else if (spotifyArtist) {
+                    // New artist from Spotify - will be created when act is saved
+                    setActForm({
+                      ...actForm,
+                      name: spotifyArtist.name,
+                      genre: spotifyArtist.genres?.[0] || actForm.genre,
+                      spotifyArtistId: spotifyArtist.id,
+                      artistId: 0, // Will create new artist
+                    });
+                  } else {
+                    // Manual entry
+                    setActForm({
+                      ...actForm,
+                      name,
+                      artistId: 0,
+                    });
+                  }
                 }}
                 placeholder="Search artist or type name"
                 required

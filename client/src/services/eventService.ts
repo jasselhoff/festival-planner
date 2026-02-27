@@ -1,5 +1,5 @@
 import api from './api';
-import type { Event, EventFull, EventCreateInput, Stage, Act, ActCreateInput, Day } from '../types';
+import type { Event, EventFull, EventCreateInput, Stage, Act, ActCreateInput, Day, EventActsGroup } from '../types';
 
 export const eventService = {
   async listEvents(): Promise<Event[]> {
@@ -80,5 +80,12 @@ export const eventService = {
 
   async deleteAct(eventId: number, actId: number): Promise<void> {
     await api.delete(`/events/${eventId}/acts/${actId}`);
+  },
+
+  async listActsWithoutSpotifyId(): Promise<EventActsGroup[]> {
+    const response = await api.get<{ success: boolean; data: EventActsGroup[] }>(
+      '/events/acts/missing-spotify-ids'
+    );
+    return response.data.data;
   },
 };

@@ -16,6 +16,7 @@ import {
   createAct,
   updateAct,
   deleteAct,
+  listActsWithoutSpotifyId,
 } from '../controllers/eventController';
 import { authenticateToken } from '../middleware/authMiddleware';
 import {
@@ -33,6 +34,7 @@ router.use(authenticateToken);
 // Events
 router.get('/', listEvents);
 router.get('/my', listMyEvents);
+router.get('/acts/missing-spotify-ids', listActsWithoutSpotifyId);
 router.post('/', validate(createEventSchema), createEvent);
 router.get('/:id', getEvent);
 router.get('/:id/full', getEventFull);

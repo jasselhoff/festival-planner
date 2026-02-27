@@ -60,6 +60,24 @@ export interface Stage {
   sortOrder: number;
 }
 
+// Artist type (normalized artist storage)
+export interface Artist {
+  id: number;
+  name: string;
+  spotifyArtistId?: string;
+  genre?: string;
+  imageUrl?: string;
+  createdBy: number;
+  createdAt: string;
+}
+
+export interface ArtistCreateInput {
+  name: string;
+  spotifyArtistId?: string;
+  genre?: string;
+  imageUrl?: string;
+}
+
 export interface Act {
   id: number;
   eventId: number;
@@ -70,6 +88,9 @@ export interface Act {
   startTime: string;
   endTime: string;
   genre?: string;
+  spotifyArtistId?: string;
+  artistId?: number;
+  artist?: Artist;
 }
 
 export interface ActCreateInput {
@@ -80,6 +101,7 @@ export interface ActCreateInput {
   startTime: string;
   endTime: string;
   genre?: string;
+  artistId?: number;
 }
 
 // Full event with nested data
@@ -162,4 +184,50 @@ export interface SpotifyArtist {
   name: string;
   genres: string[];
   imageUrl?: string;
+}
+
+export interface SpotifyConnectionStatus {
+  connected: boolean;
+  spotifyUserId?: string;
+  displayName?: string;
+}
+
+export interface CreatePlaylistOptions {
+  groupId: number;
+  eventId: number;
+  playlistName: string;
+  description?: string;
+  memberIds?: number[];
+  tracksPerArtist: number;
+  isPublic: boolean;
+}
+
+export interface CreatePlaylistResult {
+  playlistUrl: string;
+  playlistId: string;
+  trackCount: number;
+  artistsIncluded: string[];
+  artistsNotFound: string[];
+}
+
+export interface SavedPlaylist {
+  id: number;
+  groupId: number;
+  eventId: number;
+  createdBy: number;
+  spotifyPlaylistId: string;
+  spotifyPlaylistUrl: string;
+  playlistName: string;
+  description?: string;
+  trackCount: number;
+  artistsIncluded: string[];
+  isPublic: boolean;
+  createdAt: string;
+  createdByUser?: { id: number; displayName: string };
+}
+
+export interface EventActsGroup {
+  eventId: number;
+  eventName: string;
+  acts: Act[];
 }

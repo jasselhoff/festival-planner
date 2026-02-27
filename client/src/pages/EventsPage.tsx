@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { eventService } from '../services/eventService';
 import type { Event } from '../types';
-import { Calendar, MapPin, Plus, Loader2 } from 'lucide-react';
+import { Calendar, MapPin, Plus, Loader2, Music } from 'lucide-react';
 import dayjs from 'dayjs';
 import toast from 'react-hot-toast';
 
@@ -37,10 +37,19 @@ export function EventsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Events</h1>
-        <Link to="/events/create" className="btn btn-primary flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Create Event
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/events/missing-spotify-ids"
+            className="btn btn-secondary flex items-center gap-2"
+          >
+            <Music className="w-4 h-4" />
+            Missing Spotify IDs
+          </Link>
+          <Link to="/events/create" className="btn btn-primary flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Create Event
+          </Link>
+        </div>
       </div>
 
       {events.length === 0 ? (

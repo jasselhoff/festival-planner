@@ -2,6 +2,10 @@
 
 A web application for groups of friends to coordinate which acts to see at music festivals, featuring real-time synchronization of selections across group members.
 
+## Live Demo
+
+A running version of this app is available at **[https://festivalplanner.app](https://festivalplanner.app)**
+
 ## Features
 
 - **Event Management**: Create festival events with multiple days, stages, and acts

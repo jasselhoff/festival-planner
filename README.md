@@ -32,7 +32,7 @@ A web application for groups of friends to coordinate which acts to see at music
 ## Project Structure
 
 ```
-festival_planner/
+festival-planner/
 ├── client/                 # React Frontend
 │   ├── src/
 │   │   ├── components/     # Reusable UI components

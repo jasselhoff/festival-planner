@@ -1,6 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { searchArtists } from '../services/spotifyService';
 import { authenticateToken } from '../middleware/authMiddleware';
+import { validate, createPlaylistSchema } from '../middleware/validation';
+import {
+  getAuthUrl,
+  handleCallback,
+  getConnectionStatus,
+  disconnect,
+} from '../controllers/spotifyAuthController';
+import { createPlaylist, getPlaylists } from '../controllers/playlistController';
 
 const router = Router();
 
@@ -32,5 +40,15 @@ router.get('/search', authenticateToken, async (req: Request, res: Response) => 
     });
   }
 });
+
+// OAuth endpoints
+router.get('/auth/url', authenticateToken, getAuthUrl);
+router.get('/callback', handleCallback); // No auth - called by Spotify
+router.get('/status', authenticateToken, getConnectionStatus);
+router.delete('/disconnect', authenticateToken, disconnect);
+
+// Playlist endpoints
+router.post('/playlists', authenticateToken, validate(createPlaylistSchema), createPlaylist);
+router.get('/playlists/:groupId/:eventId', authenticateToken, getPlaylists);
 
 export default router;

@@ -15,6 +15,8 @@ import { GroupsPage } from './pages/GroupsPage';
 import { GroupDetailPage } from './pages/GroupDetailPage';
 import { JoinGroupPage } from './pages/JoinGroupPage';
 import { CalendarPage } from './pages/CalendarPage';
+import { SpotifyCallbackPage } from './pages/SpotifyCallbackPage';
+import { MissingSpotifyIdsPage } from './pages/MissingSpotifyIdsPage';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -37,6 +39,16 @@ function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/groups/join/:uuid" element={<JoinGroupPage />} />
 
+            {/* Spotify OAuth callback - needs auth but not layout */}
+            <Route
+              path="/spotify/callback"
+              element={
+                <ProtectedRoute>
+                  <SpotifyCallbackPage />
+                </ProtectedRoute>
+              }
+            />
+
             {/* Protected routes */}
             <Route
               element={
@@ -50,6 +62,7 @@ function App() {
               <Route path="/events/create" element={<CreateEventPage />} />
               <Route path="/events/:id" element={<EventDetailPage />} />
               <Route path="/events/:id/edit" element={<EditEventPage />} />
+              <Route path="/events/missing-spotify-ids" element={<MissingSpotifyIdsPage />} />
               <Route path="/groups" element={<GroupsPage />} />
               <Route path="/groups/:id" element={<GroupDetailPage />} />
               <Route

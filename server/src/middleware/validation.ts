@@ -64,6 +64,7 @@ export const createActSchema = z.object({
   startTime: extendedTimeSchema,
   endTime: extendedTimeSchema,
   genre: z.string().optional(),
+  artistId: z.number().int().positive().optional(),
 });
 
 // Group validation schemas
@@ -76,4 +77,15 @@ export const createGroupSchema = z.object({
 export const createSelectionSchema = z.object({
   actId: z.number().int().positive(),
   priority: z.number().int().min(1).max(3).optional(),
+});
+
+// Spotify playlist creation schema
+export const createPlaylistSchema = z.object({
+  groupId: z.number().int().positive(),
+  eventId: z.number().int().positive(),
+  playlistName: z.string().min(1, 'Playlist name is required').max(100),
+  description: z.string().max(300).optional(),
+  memberIds: z.array(z.number().int().positive()).optional(),
+  tracksPerArtist: z.number().int().min(1).max(10).default(3),
+  isPublic: z.boolean().default(true),
 });

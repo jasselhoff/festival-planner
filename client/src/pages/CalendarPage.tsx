@@ -6,7 +6,7 @@ import { selectionService } from '../services/selectionService';
 import type { SelectionWithUser, Conflict } from '../services/selectionService';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useAuth } from '../context/AuthContext';
-import type { EventFull, Group, GroupMember, Day, WebSocketMessage } from '../types';
+import type { EventFull, Group, GroupMember, Day, WebSocketMessage, SavedPlaylist } from '../types';
 import {
   ArrowLeft,
   Loader2,
@@ -17,7 +17,12 @@ import {
   Users,
   Eye,
   EyeOff,
+  Music,
+  ExternalLink,
 } from 'lucide-react';
+import { SpotifyConnectButton } from '../components/SpotifyConnectButton';
+import { CreatePlaylistModal } from '../components/CreatePlaylistModal';
+import { spotifyService } from '../services/spotifyService';
 import dayjs from 'dayjs';
 import toast from 'react-hot-toast';
 import { formatDisplayTime, formatTimeRange } from '../utils/timeFormat';
@@ -47,6 +52,9 @@ export function CalendarPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<Day | null>(null);
   const [showOnlySelected, setShowOnlySelected] = useState(false);
+  const [spotifyConnected, setSpotifyConnected] = useState(false);
+  const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);
+  const [playlists, setPlaylists] = useState<SavedPlaylist[]>([]);
 
   // Create a map of userId to color
   const userColorMap = new Map<number, string>();
@@ -92,13 +100,14 @@ export function CalendarPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [eventData, groupData, membersData, selectionsData, conflictsData] =
+        const [eventData, groupData, membersData, selectionsData, conflictsData, playlistsData] =
           await Promise.all([
             eventService.getEventFull(parseInt(eventId!)),
             groupService.getGroup(parseInt(groupId!)),
             groupService.listMembers(parseInt(groupId!)),
             selectionService.getGroupSelections(parseInt(groupId!)),
             selectionService.getConflicts(parseInt(groupId!), parseInt(eventId!)),
+            spotifyService.getPlaylists(parseInt(groupId!), parseInt(eventId!)).catch(() => []),
           ]);
 
         setEvent(eventData);
@@ -106,6 +115,7 @@ export function CalendarPage() {
         setMembers(membersData);
         setSelections(selectionsData);
         setConflicts(conflictsData);
+        setPlaylists(playlistsData);
 
         if (eventData.days.length > 0) {
           setSelectedDay(eventData.days[0]);
@@ -154,6 +164,11 @@ export function CalendarPage() {
     } catch (error) {
       toast.error('Failed to update selection');
     }
+  };
+
+  const handlePlaylistCreated = async () => {
+    const updated = await spotifyService.getPlaylists(parseInt(groupId!), parseInt(eventId!));
+    setPlaylists(updated);
   };
 
   const isSelected = (actId: number) => {
@@ -242,26 +257,56 @@ export function CalendarPage() {
               Click on acts to mark the ones you want to see
             </p>
           </div>
-          <button
-            onClick={() => setShowOnlySelected(!showOnlySelected)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              showOnlySelected
-                ? 'bg-primary-100 text-primary-700 border border-primary-300'
-                : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
-            }`}
-          >
-            {showOnlySelected ? (
-              <>
-                <EyeOff className="w-4 h-4" />
-                Selected Only
-              </>
-            ) : (
-              <>
-                <Eye className="w-4 h-4" />
-                Show All
-              </>
+          <div className="flex items-center gap-3">
+            {/* Show existing playlist link */}
+            {playlists.length > 0 && (
+              <a
+                href={playlists[0].spotifyPlaylistUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                title={`${playlists[0].playlistName} (${playlists[0].trackCount} tracks)`}
+              >
+                <Music className="w-4 h-4 text-[#1DB954]" />
+                <span className="max-w-[150px] truncate">{playlists[0].playlistName}</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
             )}
-          </button>
+
+            {/* Create Playlist button */}
+            {spotifyConnected ? (
+              <button
+                onClick={() => setIsPlaylistModalOpen(true)}
+                disabled={selections.length === 0}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#1DB954] text-white hover:bg-[#1ed760] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Music className="w-4 h-4" />
+                {playlists.length > 0 ? 'New Playlist' : 'Create Playlist'}
+              </button>
+            ) : (
+              <SpotifyConnectButton onStatusChange={setSpotifyConnected} />
+            )}
+            <button
+              onClick={() => setShowOnlySelected(!showOnlySelected)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                showOnlySelected
+                  ? 'bg-primary-100 text-primary-700 border border-primary-300'
+                  : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+              }`}
+            >
+              {showOnlySelected ? (
+                <>
+                  <EyeOff className="w-4 h-4" />
+                  Selected Only
+                </>
+              ) : (
+                <>
+                  <Eye className="w-4 h-4" />
+                  Show All
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -463,6 +508,17 @@ export function CalendarPage() {
           </div>
         )}
       </div>
+
+      {/* Spotify Playlist Modal */}
+      <CreatePlaylistModal
+        isOpen={isPlaylistModalOpen}
+        onClose={() => setIsPlaylistModalOpen(false)}
+        event={event}
+        group={group}
+        members={members}
+        selections={selections}
+        onPlaylistCreated={handlePlaylistCreated}
+      />
     </div>
   );
 }

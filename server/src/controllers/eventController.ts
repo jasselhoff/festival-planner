@@ -41,6 +41,8 @@ interface ActRow {
   start_time: string;
   end_time: string;
   genre: string | null;
+  spotify_artist_id: string | null;
+  artist_id: number | null;
 }
 
 function mapEventRow(row: EventRow): Event {
@@ -87,6 +89,8 @@ function mapActRow(row: ActRow): Act {
     startTime: row.start_time,
     endTime: row.end_time,
     genre: row.genre || undefined,
+    spotifyArtistId: row.spotify_artist_id || undefined,
+    artistId: row.artist_id || undefined,
   };
 }
 
@@ -421,7 +425,7 @@ export function createAct(req: Request, res: Response, next: NextFunction) {
   try {
     const { eventId } = req.params;
     const userId = req.user!.userId;
-    const { dayId, stageId, name, description, startTime, endTime, genre } = req.body;
+    const { dayId, stageId, name, description, startTime, endTime, genre, artistId } = req.body;
 
     const event = db
       .prepare('SELECT creator_id FROM events WHERE id = ?')
@@ -437,14 +441,16 @@ export function createAct(req: Request, res: Response, next: NextFunction) {
 
     const result = db
       .prepare(
-        `INSERT INTO acts (event_id, day_id, stage_id, name, description, start_time, end_time, genre)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO acts (event_id, day_id, stage_id, name, description, start_time, end_time, genre, artist_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run(eventId, dayId, stageId, name, description || null, startTime, endTime, genre || null);
+      .run(eventId, dayId, stageId, name, description || null, startTime, endTime, genre || null, artistId || null);
 
     const act = db
       .prepare('SELECT * FROM acts WHERE id = ?')
       .get(result.lastInsertRowid) as ActRow;
+
+    db.save();
 
     res.status(201).json({ success: true, data: mapActRow(act) });
   } catch (error) {
@@ -456,7 +462,7 @@ export function updateAct(req: Request, res: Response, next: NextFunction) {
   try {
     const { eventId, actId } = req.params;
     const userId = req.user!.userId;
-    const { dayId, stageId, name, description, startTime, endTime, genre } = req.body;
+    const { dayId, stageId, name, description, startTime, endTime, genre, artistId } = req.body;
 
     const event = db
       .prepare('SELECT creator_id FROM events WHERE id = ?')
@@ -474,9 +480,10 @@ export function updateAct(req: Request, res: Response, next: NextFunction) {
          description = COALESCE(?, description),
          start_time = COALESCE(?, start_time),
          end_time = COALESCE(?, end_time),
-         genre = COALESCE(?, genre)
+         genre = COALESCE(?, genre),
+         artist_id = COALESCE(?, artist_id)
        WHERE id = ? AND event_id = ?`
-    ).run(dayId, stageId, name, description, startTime, endTime, genre, actId, eventId);
+    ).run(dayId, stageId, name, description, startTime, endTime, genre, artistId, actId, eventId);
 
     const act = db
       .prepare('SELECT * FROM acts WHERE id = ?')
@@ -504,6 +511,52 @@ export function deleteAct(req: Request, res: Response, next: NextFunction) {
     db.prepare('DELETE FROM acts WHERE id = ? AND event_id = ?').run(actId, eventId);
 
     res.json({ success: true, data: { message: 'Act deleted successfully' } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Get all acts without Spotify IDs (for bulk editing)
+export function listActsWithoutSpotifyId(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.userId;
+
+    // Get all events created by this user
+    const events = db
+      .prepare('SELECT id, name FROM events WHERE creator_id = ? ORDER BY start_date DESC')
+      .all(userId) as { id: number; name: string }[];
+
+    const eventIds = events.map((e) => e.id);
+
+    if (eventIds.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // Get all acts without spotify_artist_id from these events
+    const placeholders = eventIds.map(() => '?').join(',');
+    const acts = db
+      .prepare(
+        `SELECT a.*, e.name as event_name
+         FROM acts a
+         JOIN events e ON a.event_id = e.id
+         WHERE a.event_id IN (${placeholders})
+           AND (a.spotify_artist_id IS NULL OR a.spotify_artist_id = '')
+         ORDER BY e.start_date DESC, a.name`
+      )
+      .all(...eventIds) as (ActRow & { event_name: string })[];
+
+    // Group acts by event
+    const groupedByEvent = events
+      .map((event) => ({
+        eventId: event.id,
+        eventName: event.name,
+        acts: acts
+          .filter((a) => a.event_id === event.id)
+          .map((row) => mapActRow(row)),
+      }))
+      .filter((group) => group.acts.length > 0);
+
+    res.json({ success: true, data: groupedByEvent });
   } catch (error) {
     next(error);
   }
